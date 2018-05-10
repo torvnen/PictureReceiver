@@ -27,7 +27,7 @@ namespace Nipema.PictureReceiver
             // Buffer for reading data
             byte[] buffer = null;
             int receivedBytesSingle = 0;
-            int receivedBytesTotal = 0;
+            int receivedFileBytes = 0;
             var fileBytes = new List<byte>();
             
             try
@@ -40,30 +40,38 @@ namespace Nipema.PictureReceiver
                 buffer = new byte[1024];
                 receivedBytesSingle = handler.Receive(buffer);
 
-                System.Diagnostics.Debug.Assert(receivedBytesSingle == 1024);
-                System.Diagnostics.Debug.Assert(receivedBytesTotal == 1024);
+                System.Diagnostics.Debug.Assert(receivedBytesSingle == 1024, "RECEIVED NO HEADER.");
 
-                var frame = new MessageFrame(buffer);
+                var header = new MessageHeader(buffer);
+                Console.WriteLine(header.ToString());
 
-                while (handler.Connected && receivedBytesTotal < frame.MessageLength)
+                while (handler.Connected && fileBytes.Count < header.MessageLength)
                 {
                     buffer = new byte[1024];
                     receivedBytesSingle = handler.Receive(buffer);
+
+                    if (receivedBytesSingle == 0) break;
+
                     var bytesReceived = buffer.Take(receivedBytesSingle);
                     var charactersReceived = Encoding.ASCII.GetString(bytesReceived.ToArray());
 
-                    Console.WriteLine($"Received {receivedBytesSingle} bytes.");
+                    Console.WriteLine($"Received {receivedBytesSingle} bytes. Total received: {fileBytes.Count} / {header.MessageLength}");
                     fileBytes.AddRange(bytesReceived);
                 }
 
                 Console.WriteLine("End of transfer.");
-                System.IO.File.WriteAllBytes(@"D:\kuva.png", fileBytes.ToArray());
+                System.IO.File.WriteAllBytes
+                (
+                    header.FileName, 
+                    fileBytes.ToArray()
+                );
 
-                byte[] msg = Encoding.ASCII.GetBytes("<EOF>");
-                handler.Send(msg);
+                //byte[] msg = Encoding.ASCII.GetBytes("<EOF>");
+                //handler.Send(msg);
                 handler.Shutdown(SocketShutdown.Both);
                 handler.Close();
 
+                Run();
             }
             catch (SocketException e)
             {
