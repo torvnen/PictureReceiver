@@ -26,35 +26,34 @@ namespace Nipema.PictureReceiver
         {
             // Buffer for reading data
             byte[] buffer = null;
+            int receivedBytesSingle = 0;
+            int receivedBytesTotal = 0;
             var fileBytes = new List<byte>();
-
+            
             try
             {                
                 Console.Write("Waiting for a connection... ");
                 var handler = _listener.Accept();
                 Console.WriteLine("Connected!");
 
-                while (handler.Connected)
+                // Empty buffer for receiving the first message (meta data)
+                buffer = new byte[1024];
+                receivedBytesSingle = handler.Receive(buffer);
+
+                System.Diagnostics.Debug.Assert(receivedBytesSingle == 1024);
+                System.Diagnostics.Debug.Assert(receivedBytesTotal == 1024);
+
+                var frame = new MessageFrame(buffer);
+
+                while (handler.Connected && receivedBytesTotal < frame.MessageLength)
                 {
                     buffer = new byte[1024];
-                    var receiveLength = handler.Receive(buffer);
-                    var bytesReceived = buffer.Take(receiveLength);
+                    receivedBytesSingle = handler.Receive(buffer);
+                    var bytesReceived = buffer.Take(receivedBytesSingle);
                     var charactersReceived = Encoding.ASCII.GetString(bytesReceived.ToArray());
 
-                    Console.WriteLine($"Received {receiveLength} bytes.");
-                    if (charactersReceived.Contains("<EOF>"))
-                    {
-                        var eofLength = Encoding.ASCII.GetByteCount("<EOF>");
-                        var interestingBytesCount = bytesReceived.Count() - eofLength;
-                        fileBytes.AddRange(bytesReceived.Take(interestingBytesCount));
-
-                        Console.WriteLine("Received <EOF>, removed {0} bytes. Added {1}", eofLength, interestingBytesCount);
-                        break;
-                    }
-
+                    Console.WriteLine($"Received {receivedBytesSingle} bytes.");
                     fileBytes.AddRange(bytesReceived);
-
-                    Console.WriteLine($"Received {receiveLength} bytes.");
                 }
 
                 Console.WriteLine("End of transfer.");
