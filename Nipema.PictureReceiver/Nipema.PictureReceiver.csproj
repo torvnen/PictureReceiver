@@ -45,7 +45,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="MessageFrame.cs" />
+    <Compile Include="MessageHeader.cs" />
     <Compile Include="PictureReceiverService.cs">
       <SubType>Component</SubType>
     </Compile>

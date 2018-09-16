@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,9 +12,10 @@ namespace Nipema.PictureReceiver
     public class PictureReceiverTask
     {
         private readonly Socket _listener = null;
-        
-        public PictureReceiverTask(string ipAddr = "192.168.1.50", int portNumber = 7359)
+
+        public PictureReceiverTask(int portNumber = 7359)
         {
+            string ipAddr = GetLocalIPAddress();
             var localIp = IPAddress.Parse(ipAddr);
             var endPoint = new IPEndPoint(localIp, portNumber);
 
@@ -22,16 +24,36 @@ namespace Nipema.PictureReceiver
             _listener.Listen(100);
         }
 
+        public static string GetLocalIPAddress()
+        {
+            var interfaces = NetworkInterface.GetAllNetworkInterfaces();
+            foreach (var i in interfaces)
+            {
+                if (i.NetworkInterfaceType == NetworkInterfaceType.Wireless80211
+                    && i.OperationalStatus == OperationalStatus.Up)
+                {
+                    var ipProps = i.GetIPProperties();
+                    foreach (var ac in ipProps.UnicastAddresses)
+                    {
+                        if (ac.Address.AddressFamily == AddressFamily.InterNetwork)
+                        {
+                            return ac.Address.ToString();
+                        }
+                    }
+                }
+            }
+            throw new Exception("Pitää olla wifi yhteys tai sitten koodia pitää muuttaa (PictureReceiverTask.cs:35)");
+        }
+
         public void Run()
         {
             // Buffer for reading data
             byte[] buffer = null;
             int receivedBytesSingle = 0;
-            int receivedFileBytes = 0;
             var fileBytes = new List<byte>();
-            
+
             try
-            {                
+            {
                 Console.Write("Waiting for a connection... ");
                 var handler = _listener.Accept();
                 Console.WriteLine("Connected!");
@@ -60,11 +82,14 @@ namespace Nipema.PictureReceiver
                 }
 
                 Console.WriteLine("End of transfer.");
-                System.IO.File.WriteAllBytes
-                (
-                    header.FileName, 
-                    fileBytes.ToArray()
-                );
+                foreach (var fileType in header.FileTypes)
+                {
+                    System.IO.File.WriteAllBytes
+                    (
+                        "C:\\Nipema\\tuotekuvat\\" + header.FileName + "_" + (int)fileType + ".JPEG",
+                        fileBytes.ToArray()
+                    );
+                }
 
                 //byte[] msg = Encoding.ASCII.GetBytes("<EOF>");
                 //handler.Send(msg);
